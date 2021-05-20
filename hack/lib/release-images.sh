@@ -19,23 +19,24 @@ set -x
 YURT_IMAGE_DIR=${YURT_OUTPUT_DIR}/images
 YURTCTL_SERVANT_DIR=${YURT_ROOT}/config/yurtctl-servant
 DOCKER_BUILD_BASE_IDR=$YURT_ROOT/dockerbuild
+#YURT_BUILD_IMAGE="golang:1.13-alpine3.12"
 YURT_BUILD_IMAGE="golang:1.13-alpine"
-#REPO="openyurt"
-#TAG="v0.2.0"
+REPO="cloudtogo4edge"
+TAG="v0.3.0"
 
 readonly -a YURT_BIN_TARGETS=(
-    yurthub
-    yurt-controller-manager
-    yurtctl-servant
+#    yurthub
+#    yurt-controller-manager
+#    yurtctl-servant
     yurt-tunnel-server
-    yurt-tunnel-agent
-    yurt-app-manager
+#    yurt-tunnel-agent
+#    yurt-app-manager
 )
 
 readonly -a SUPPORTED_ARCH=(
     amd64
-    arm
-    arm64
+#    arm
+#    arm64
 )
 
 readonly SUPPORTED_OS=linux
@@ -92,6 +93,7 @@ function build_docker_image() {
 
                local yurt_component_image="${REPO}/${binary_name}:${TAG}-${arch}"
                local base_image="k8s.gcr.io/debian-iptables-${arch}:v11.0.2"
+#               local base_image="cloudtogo4edge/alpine-iptables:v12.1.2-alpine3.12"
                cat <<EOF > "${docker_file_path}"
 FROM ${base_image}
 COPY ${binary_name} /usr/local/bin/${binary_name}

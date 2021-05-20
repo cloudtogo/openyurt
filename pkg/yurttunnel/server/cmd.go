@@ -17,7 +17,10 @@ limitations under the License.
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/alibaba/openyurt/pkg/projectinfo"
@@ -90,6 +93,15 @@ func NewYurttunnelServerCommand(stopCh <-chan struct{}) *cobra.Command {
 		"The number of proxy server instances, should be 1 unless it is an HA server.")
 	flags.StringVar(&o.proxyStrategy, "proxy-strategy", o.proxyStrategy,
 		"The strategy of proxying requests from tunnel server to agent.")
+	flags.StringVar(&o.clientCAFile, "client-ca-file", o.clientCAFile,
+		"Specify the client CA File used to access to the kubelet server. "+
+			"It is usually set to the same value as the flag of kube-apiserver.")
+	flags.StringVar(&o.clientCertFile, "kubelet-client-certificate", o.clientCertFile,
+		"Specify the client certificate File used to access to the kubelet server. "+
+			"It is usually set to the same value as the flag of kube-apiserver.")
+	flags.StringVar(&o.clientKeyFile, "kubelet-client-key", o.clientKeyFile,
+		"Specify the client key File used to access to the kubelet server. "+
+			"It is usually set to the same value as the flag of kube-apiserver.")
 
 	return cmd
 }
@@ -117,6 +129,9 @@ type YurttunnelServerOptions struct {
 	clientset                kubernetes.Interface
 	sharedInformerFactory    informers.SharedInformerFactory
 	proxyStrategy            string
+	clientCAFile             string
+	clientCertFile           string
+	clientKeyFile            string
 }
 
 // NewYurttunnelServerOptions creates a new YurtNewYurttunnelServerOptions
@@ -208,6 +223,27 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		return err
 	}
 
+	var clientTlsConfig *tls.Config
+	if o.clientCAFile != "" {
+		cert, err := tls.LoadX509KeyPair(o.clientCertFile, o.clientKeyFile)
+		if err != nil {
+			return err
+		}
+
+		caCert, err := ioutil.ReadFile(o.clientCAFile)
+		if err != nil {
+			return err
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		clientTlsConfig = &tls.Config{
+			Certificates:       []tls.Certificate{cert},
+			RootCAs:            caCertPool,
+			InsecureSkipVerify: true,
+		}
+	}
+
 	// 4. create handler wrappers
 	mInitializer := initializer.NewMiddlewareInitializer(o.sharedInformerFactory)
 	wrappers, err := wraphandler.InitHandlerWrappers(mInitializer)
@@ -238,6 +274,7 @@ func (o *YurttunnelServerOptions) run(stopCh <-chan struct{}) error {
 		o.serverAgentAddr,
 		o.serverCount,
 		tlsCfg,
+		clientTlsConfig,
 		wrappers,
 		o.proxyStrategy)
 	if err := ts.Run(); err != nil {

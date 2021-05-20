@@ -132,6 +132,7 @@ func GenTLSConfigUseCertMgrAndCA(
 		MinVersion: tls.VersionTLS12,
 		ServerName: host,
 		RootCAs:    root,
+		InsecureSkipVerify: true,
 	}
 
 	tlsConfig.GetClientCertificate =
